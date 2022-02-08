@@ -1,0 +1,7 @@
+.footerContainer {
+    position: sticky;
+    top: 100vh;
+    padding: 16px 0 0 16px;
+    display: flex;
+    flex-direction: row;
+}

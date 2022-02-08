@@ -1,0 +1,44 @@
+@font-face {
+  font-family: "Chakra Petch";
+  src: local("Chakra Petch SemiBold"), url("../../public/fonts/ChakraPetch-SemiBold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Chakra Petch";
+  src: local("Chakra Petch"), url("../../public/fonts/ChakraPetch-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Chakra Petch Bold";
+  src: local("Chakra Petch Bold"), url("../../public/fonts/ChakraPetch-Bold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Chakra Petch Medium";
+  src: local("Chakra Petch Medium"), url("../../public/fonts/ChakraPetch-Medium.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Chakra Petch Light";
+  src: local("Chakra Petch Light"), url("../../public/fonts/ChakraPetch-Light.ttf") format("truetype");
+}
+
+html,
+body {
+  padding: 0 !important;
+  margin: 0 !important;
+  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+
+  background: #0e0e0e;
+  color: #f2f2f2;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+}
