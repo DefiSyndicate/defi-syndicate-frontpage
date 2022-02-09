@@ -5,6 +5,10 @@
   margin-top: 200px;
 }
 
+.anchorTag {
+  scroll-margin-top: 5rem;
+}
+
 .heroTitle {
   font-size: 39px;
   font-weight: 500;

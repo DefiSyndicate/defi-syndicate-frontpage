@@ -15,3 +15,7 @@
     height:75vh;
     margin-top: 32px;
 }
+
+.anchorTag {
+    scroll-margin-top: 5rem;
+}

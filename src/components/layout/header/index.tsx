@@ -11,7 +11,7 @@ const Header = (): JSX.Element => {
                 <Navbar.Toggle aria-controls="responsive-navbar-nav" />
                 <Navbar.Collapse id="responsive-navbar-nav" className={`justify-content-end ${css.navbarBg}`}>
                     <Nav className={css.navItem}>
-                        <Nav.Link href="#">Home</Nav.Link>
+                        <Nav.Link href="/#">Home</Nav.Link>
                         <Nav.Link href="#about">About</Nav.Link>
                         <Nav.Link href="#chart">Chart</Nav.Link>
                         <Nav.Link href="#buy">Buy</Nav.Link>

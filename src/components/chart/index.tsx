@@ -4,7 +4,7 @@ import css from './chart.module.css';
 const Chart = (): JSX.Element => {
 
     return(
-        <Container id="chart">
+        <Container id="chart" className={css.anchorTag}>
             <Row>
                 <Col>
                     <div className={css.dexScreenerEmbed} id="dexscreener-embed">
