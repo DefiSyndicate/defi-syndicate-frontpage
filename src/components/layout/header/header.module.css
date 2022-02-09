@@ -1,9 +1,5 @@
-.headerContainer {
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    align-items: baseline;
-    padding: 16px 0 0 16px;
+.navBar {
+    backdrop-filter: blur(0.5rem);
 }
 
 .logoText {
@@ -17,4 +13,11 @@
     font-family: "Chakra Petch Medium";
     margin: 0px 10px 0 10px;
     font-size: 22px;
+}
+
+@media screen and (max-width: 768px) {
+    .navbarBg {
+        background-color: rgba(94, 94, 94, 0.75);
+        border-radius: 0.25rem;
+    }
 }

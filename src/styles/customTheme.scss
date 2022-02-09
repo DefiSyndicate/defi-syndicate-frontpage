@@ -1,0 +1,78 @@
+$blue: #007bff;
+$indigo: #6610f2;
+$purple: #6f42c1;
+$pink: #e83e8c;
+$red: #dc3545;
+$orange: #fd7e14;
+$yellow: #ffc107;
+$green: #28a745;
+$teal: #20c997;
+$cyan: #17a2b8;
+$white: #fff;
+$fuscia: #cb03e2;
+$dark-purple: #000217;
+$gray-100: #f8f9fa;
+$gray-200: #e9ecef;
+$gray-300: #dee2e6;
+$gray-400: #ced4da;
+$gray-500: #adb5bd;
+$gray-600: #868e96;
+$gray-700: #495057;
+$gray-800: #343a40;
+$gray-900: #212529;
+$black: #000;
+
+$primary: $blue;
+$secondary: $gray-600;
+$success: $green;
+$info: $cyan;
+$warning: $yellow;
+$danger: $red;
+$light: $gray-100;
+$dark: $gray-800;
+
+$theme-color-interval: 8%;
+
+// Spacing
+$spacer: 1rem;
+$spacers: (0: 0, 1: ($spacer * 0.25), 2: ($spacer * 0.5), 3: $spacer, 4: ($spacer * 1.5), 5: ($spacer * 3));
+$sizes: (25: 25%, 50: 50%, 75: 75%, 100: 100%);
+
+
+// Options
+$enable-rounded: true;
+$enable-shadows: false;
+$enable-gradients: false;
+$enable-transitions: true;
+$enable-hover-media-query: false;
+$enable-grid-classes: true;
+$enable-print-styles: true;
+
+
+// Body
+$body-bg: $gray-900;
+$body-color: $gray-100;
+
+
+// Navs
+$nav-link-padding-y: 0.5rem;
+$nav-link-padding-x: 1rem;
+$nav-link-disabled-color: $gray-600;
+$nav-tabs-border-color: #ddd;
+$nav-tabs-link-hover-border-color: $gray-200;
+$nav-tabs-link-active-color: $gray-700;
+$nav-tabs-link-active-bg: $body-bg;
+$nav-tabs-link-active-border-color: #ddd;
+
+$navbar-dark-color: $gray-100;
+$navbar-dark-hover-color: rgba($white, 0.75);
+$navbar-dark-active-color: rgba($white, 1);
+$navbar-dark-disabled-color: rgba($white, 0.25);
+$navbar-dark-toggler-border-color: rgba($white, 0.1);
+$navbar-light-color: rgba($white, 0.75);
+$navbar-light-hover-color: rgba($white, 0.7);
+$navbar-light-active-color: rgba($white, 0.9);
+$navbar-light-disabled-color: rgba($white, 0.3);
+$navbar-light-toggler-border-color: rgba($white, 0.1);
+
+@import "~bootstrap/scss/bootstrap";
