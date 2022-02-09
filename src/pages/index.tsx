@@ -20,7 +20,7 @@ export default function Home() {
         </Row>
         <Row>
           <Col className={`d-flex flex-column justify-content-center ${css.center}`}>
-            <div className={css.heroSubtitle}>In order to innovate in this space you have to experiment and continuously adapt to the changing environment.</div>
+            <div className={`${css.about2}`}>In order to innovate in this space you have to experiment and continuously adapt to the changing environment.</div>
           </Col>
         </Row>
         <Row>
