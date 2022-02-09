@@ -40,7 +40,7 @@ const SocialLink = ({title}: SocialLinkProps): JSX.Element => {
     console.log(title);
     return (
         <div className={css.socialLinkContainer}>
-            <a href={socials[title].url} target="_blank" rel="noopener"><Image height="24" width="24" src={socials[title].icon}></Image></a>
+            <a href={socials[title].url} target="_blank" rel="noreferrer"><Image height="24" width="24" alt={`${title} icon`} src={socials[title].icon}></Image></a>
         </div>
     );
 
