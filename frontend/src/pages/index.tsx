@@ -30,7 +30,7 @@ export default function Home() {
             </div>
           </Col>
         </Row>
-        <Row>
+        <Row className="d-none">
           <Col className={`d-flex flex-column justify-content-center ${css.center}`}>
             <Chart></Chart>
           </Col>

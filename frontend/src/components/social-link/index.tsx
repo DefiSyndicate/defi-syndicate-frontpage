@@ -2,7 +2,10 @@ import Image from 'next/image';
 import discordIcon from '../../../public/icons/discord.svg';
 import twitterIcon from '../../../public/icons/twitter.svg';
 import telegramIcon from '../../../public/icons/telegram.svg';
+import githubIcon from '../../../public/icons/github.svg';
+import mediumIcon from '../../../public/icons/medium.svg';
 import css from './social-link.module.css';
+
 
 interface SocialMeta {
     icon: string;
@@ -29,6 +32,16 @@ const socials: SocialStruct = {
         title: 'Telegram',
         icon: telegramIcon,
         url: 'https://www.twitter.com/DefiSyndicate'
+    },
+    github: {
+        title: 'Github',
+        icon: githubIcon,
+        url: 'https://github.com/DefiSyndicate'
+    },
+    medium: {
+        title: 'Medium',
+        icon: mediumIcon,
+        url: 'https://medium.com/@DefiSyndicate'
     }
 };
 
