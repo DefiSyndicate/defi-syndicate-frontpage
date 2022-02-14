@@ -9,7 +9,7 @@ export default function Home() {
       <Container>
         <Row id="hero" className={css.anchorTag}>
           <Col className={`d-flex flex-column justify-content-center ${css.center}`}>
-              <h1 className={css.heroMain}>Defi Syndicate</h1>
+              <h1 className={css.heroMain}>DefiSyndicate</h1>
               <div className={css.heroTitle}>Welcome to the Syndicate</div>
           </Col>
         </Row>

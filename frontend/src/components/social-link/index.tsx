@@ -26,7 +26,7 @@ const socials: SocialStruct = {
     discord: {
         title: 'Discord',
         icon: discordIcon,
-        url: 'https://www.twitter.com/DefiSyndicate'
+        url: 'https://discord.gg/defisyndicate'
     },
     telegram: {
         title: 'Telegram',
