@@ -141,6 +141,12 @@ contract DefiSyndicate is IERC20, Ownable {
 
         _tTotal = 9000000 * 10**9;
         _rTotal = (MAX - (MAX % _tTotal));
+        console.log("init totals");
+        console.log(_tTotal);
+        console.log(_rTotal);
+        console.log("init MAX");
+        console.log(MAX);
+        console.log(MAX % _tTotal);
         _maxFee = 1500;
 
         swapAndLiquifyEnabled = false;
@@ -156,7 +162,8 @@ contract DefiSyndicate is IERC20, Ownable {
         WAVAX = uniswapV2Router.WAVAX();
         // Create a uniswap pair for this new token
         uniswapV2Pair = IUniswapV2Factory(uniswapV2Router.factory())
-        .createPair(address(this), WAVAX);
+            .createPair(address(this), WAVAX);
+
 
         //exclude owner and this contract from fee
         _isExcludedFromFee[owner()] = true;
@@ -165,11 +172,13 @@ contract DefiSyndicate is IERC20, Ownable {
         __DefiSyndicate_tiers_init();
 
         emit Transfer(address(0), _msgSender(), _tTotal);
+
+        _getRate();
     }
 
     function __DefiSyndicate_tiers_init() private {
         _defaultFees = _addTier(900, 300, 0, 600, 600, 600, address(0));
-        //_addTier(50, 50, 100, 0, 0, address(0), address(0));
+        _addTier(900, 300, 0, 600, 600, 600, address(0));
         //_addTier(50, 50, 100, 100, 0, address(0), address(0));
         //_addTier(100, 125, 125, 150, 0, address(0), address(0));
     }
@@ -191,6 +200,8 @@ contract DefiSyndicate is IERC20, Ownable {
     }
 
     function balanceOf(address account) public view override returns (uint256) {
+        console.log("isExcluded");
+        console.log(_isExcluded[account]);
         if (_isExcluded[account]) return _tOwned[account];
         return tokenFromReflection(_rOwned[account]);
     }
@@ -251,11 +262,13 @@ contract DefiSyndicate is IERC20, Ownable {
     function tokenFromReflection(uint256 rAmount) public view returns(uint256) {
         require(rAmount <= _rTotal, "Amount must be less than total reflections");
         uint256 currentRate = _getRate();
+        console.log("currentRate");
+        console.log(currentRate);
         return rAmount.div(currentRate);
     }
 
     function excludeFromReward(address account) public onlyOwner {
-        require(!_isExcluded[account], "Account is already excluded");
+        //require(!_isExcluded[account], "Account is already excluded");
         if(_rOwned[account] > 0) {
             _tOwned[account] = tokenFromReflection(_rOwned[account]);
         }
@@ -493,6 +506,9 @@ contract DefiSyndicate is IERC20, Ownable {
     receive() external payable {}
 
     function _reflectFee(uint256 rFee, uint256 tFee) private {
+        console.log("DefiSyndicate#_reflectFee");
+        console.log(rFee);
+        console.log(tFee);
         _rTotal = _rTotal.sub(rFee);
         _tFeeTotal = _tFeeTotal.add(tFee);
     }
@@ -541,6 +557,9 @@ contract DefiSyndicate is IERC20, Ownable {
 
     function _getRate() private view returns(uint256) {
         (uint256 rSupply, uint256 tSupply) = _getCurrentSupply();
+        console.log("DefiSyndicate#currentSupply");
+        console.log(rSupply);
+        console.log(tSupply);
         return rSupply.div(tSupply);
     }
 
@@ -606,6 +625,8 @@ contract DefiSyndicate is IERC20, Ownable {
     preventBlacklisted(to, "DefiSyndicate: To address is blacklisted")
     isRouter(_msgSender())
     {
+        console.log("Total Transfer Amount");
+        console.log(amount);
         require(from != address(0), "WAVAX: transfer from the zero address");
         require(to != address(0), "WAVAX: transfer to the zero address");
         require(amount > 0, "Transfer amount must be greater than zero");
@@ -641,6 +662,8 @@ contract DefiSyndicate is IERC20, Ownable {
         }
 
         //transfer amount, it will take tax, burn, liquidity fee
+        console.log("TierIndex");
+        console.log(tierIndex);
         _tokenTransfer(from, to, amount, tierIndex, takeFee, buySell);
     }
 

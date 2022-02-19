@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.11;
+pragma solidity ^0.6.12;
 
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {Context} from "@openzeppelin/contracts/utils/Context.sol";
+import {Address} from "old-oz-contracts/utils/Address.sol";
+import {Context} from "old-oz-contracts/utils/Context.sol";
 
 abstract contract Initializable {
 
