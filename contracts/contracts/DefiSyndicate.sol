@@ -25,7 +25,7 @@ contract DefiSyndicate is IERC20, Ownable {
         uint256 sellReflectFee;
         uint256 buyBurnFee;
         uint256 sellBurnFee;
-        uint256 buyEcosystem;
+        uint256 buyEcosystemFee;
         uint256 sellEcosystem;
         address ecoSystem;
     }
@@ -38,6 +38,7 @@ contract DefiSyndicate is IERC20, Ownable {
         uint256 tEcoSystem;
         uint256 tReflectFee;
         uint256 tBurn;
+        uint256 tAvaxReflect;
     }
 
     struct tFeeValues {
@@ -45,10 +46,12 @@ contract DefiSyndicate is IERC20, Ownable {
         uint256 tEcoSystem;
         uint256 tReflect;
         uint256 tBurn;
+        uint256 tAvaxReflect;
     }
 
     mapping (address => uint256) private _rOwned;
     mapping (address => uint256) private _tOwned;
+    mapping (address => uint256) private _avaxCache;
     mapping (address => mapping (address => uint256)) private _allowances;
     mapping (address => bool) private _isExcludedFromFee;
     mapping (address => bool) private _isExcluded;
@@ -58,14 +61,14 @@ contract DefiSyndicate is IERC20, Ownable {
     address[] private _excluded;
 
     uint256 private constant MAX = ~uint256(0);
-    uint256 private _tTotal;
+    uint256 private immutable _tTotal;
     uint256 private _rTotal;
     uint256 private _tFeeTotal;
     uint256 private _maxFee;
 
-    string private _name;
-    string private _symbol;
-    uint8 private _decimals;
+    string private immutable _name;
+    string private immutable _symbol;
+    uint8 private immutable _decimals;
 
     FeeTier public _defaultFees;
     FeeTier private _previousFees;
@@ -76,7 +79,6 @@ contract DefiSyndicate is IERC20, Ownable {
     IUniswapV2Router02 public uniswapV2Router;
     address public uniswapV2Pair;
     address public WAVAX;
-    address private migration;
     address private _initializerAccount;
     address public _burnAddress;
 
@@ -84,6 +86,7 @@ contract DefiSyndicate is IERC20, Ownable {
     bool public swapAndLiquifyEnabled;
 
     uint256 public _maxTxAmount;
+    uint256 immutable _maxWalletAmount;
     uint256 private numTokensSellToAddToLiquidity;
 
     bool private _upgraded;
@@ -92,7 +95,7 @@ contract DefiSyndicate is IERC20, Ownable {
     event SwapAndLiquifyEnabledUpdated(bool enabled);
     event SwapAndLiquify(
         uint256 tokensSwapped,
-        uint256 bnbReceived,
+        uint256 avaxReceived,
         uint256 tokensIntoLiquidity
     );
 
@@ -141,17 +144,12 @@ contract DefiSyndicate is IERC20, Ownable {
 
         _tTotal = 9000000 * 10**9;
         _rTotal = (MAX - (MAX % _tTotal));
-        console.log("init totals");
-        console.log(_tTotal);
-        console.log(_rTotal);
-        console.log("init MAX");
-        console.log(MAX);
-        console.log(MAX % _tTotal);
         _maxFee = 1500;
 
         swapAndLiquifyEnabled = false;
 
-        _maxTxAmount = 5000 * 10**6 * 10**9;
+        _maxTxAmount = _rTotal.div(100);
+        _maxWalletAmount = _maxTxAmount;
         numTokensSellToAddToLiquidity = 500 * 10**6 * 10**9;
 
         _burnAddress = 0x000000000000000000000000000000000000dEaD;
@@ -168,6 +166,7 @@ contract DefiSyndicate is IERC20, Ownable {
         //exclude owner and this contract from fee
         _isExcludedFromFee[owner()] = true;
         _isExcludedFromFee[address(this)] = true;
+        _isExcludedFromFee[_burnAddress] = true;
 
         __DefiSyndicate_tiers_init();
 
@@ -177,10 +176,15 @@ contract DefiSyndicate is IERC20, Ownable {
     }
 
     function __DefiSyndicate_tiers_init() private {
-        _defaultFees = _addTier(900, 300, 0, 600, 600, 600, address(0));
-        _addTier(900, 300, 0, 600, 600, 600, address(0));
-        //_addTier(50, 50, 100, 100, 0, address(0), address(0));
-        //_addTier(100, 125, 125, 150, 0, address(0), address(0));
+        // uint256 buyReflectFee;
+        // uint256 sellReflectFee;
+        // uint256 buyBurnFee;
+        // uint256 sellBurnFee;
+        // uint256 buyEcosystemFee;
+        // uint256 sellEcosystem;
+        // address ecoSystem;
+        _defaultFees = _addTier(900, 300, 0, 0, 600, 1200, address(0));
+        _addTier(900, 300, 0, 0, 600, 1200, address(0));
     }
 
     function name() public view returns (string memory) {
@@ -200,8 +204,6 @@ contract DefiSyndicate is IERC20, Ownable {
     }
 
     function balanceOf(address account) public view override returns (uint256) {
-        console.log("isExcluded");
-        console.log(_isExcluded[account]);
         if (_isExcluded[account]) return _tOwned[account];
         return tokenFromReflection(_rOwned[account]);
     }
@@ -262,8 +264,6 @@ contract DefiSyndicate is IERC20, Ownable {
     function tokenFromReflection(uint256 rAmount) public view returns(uint256) {
         require(rAmount <= _rTotal, "Amount must be less than total reflections");
         uint256 currentRate = _getRate();
-        console.log("currentRate");
-        console.log(currentRate);
         return rAmount.div(currentRate);
     }
 
@@ -351,7 +351,7 @@ contract DefiSyndicate is IERC20, Ownable {
 
     function addBuyFees(FeeTier memory _tier) internal pure returns(uint256){
         return _tier.buyBurnFee
-            .add(_tier.buyEcosystem)
+            .add(_tier.buyEcosystemFee)
             .add(_tier.buyReflectFee);
     }
 
@@ -361,12 +361,12 @@ contract DefiSyndicate is IERC20, Ownable {
             .add(_tier.sellReflectFee);
     }
 
-    function setBuyEcoSystemFeePercent(uint256 _tierIndex, uint256 _buyEcoSystem) external onlyOwner checkTierIndex(_tierIndex) {
+    function setBuyEcoSystemFeePercent(uint256 _tierIndex, uint256 _buyEcosystemFee) external onlyOwner checkTierIndex(_tierIndex) {
         FeeTier memory tier = feeTiers[_tierIndex];
-        checkBuyFeesChanged(tier, tier.buyEcosystem, _buyEcoSystem);
-        feeTiers[_tierIndex].buyEcosystem = _buyEcoSystem;
+        checkBuyFeesChanged(tier, tier.buyEcosystemFee, _buyEcosystemFee);
+        feeTiers[_tierIndex].buyEcosystemFee = _buyEcosystemFee;
         if(_tierIndex == 0) {
-            _defaultFees.buyEcosystem = _buyEcoSystem;
+            _defaultFees.buyEcosystemFee = _buyEcosystemFee;
         }
     }
 
@@ -429,7 +429,7 @@ contract DefiSyndicate is IERC20, Ownable {
         uint256 _sellReflectFee,
         uint256 _buyBurnFee,
         uint256 _sellBurnFee,
-        uint256 _buyEcosystem,
+        uint256 _buyEcosystemFee,
         uint256 _sellEcosystem,
         address _ecoSystem
     ) public onlyOwner {
@@ -438,7 +438,7 @@ contract DefiSyndicate is IERC20, Ownable {
             _sellReflectFee,
             _buyBurnFee,
             _sellBurnFee,
-            _buyEcosystem,
+            _buyEcosystemFee,
             _sellEcosystem,
             _ecoSystem
         );
@@ -449,7 +449,7 @@ contract DefiSyndicate is IERC20, Ownable {
         uint256 _sellReflectFee,
         uint256 _buyBurnFee,
         uint256 _sellBurnFee,
-        uint256 _buyEcosystem,
+        uint256 _buyEcosystemFee,
         uint256 _sellEcosystem,
         address _ecoSystem
     ) internal returns (FeeTier memory) {
@@ -458,7 +458,7 @@ contract DefiSyndicate is IERC20, Ownable {
                 _sellReflectFee,
                 _buyBurnFee,
                 _sellBurnFee,
-                _buyEcosystem,
+                _buyEcosystemFee,
                 _sellEcosystem,
                 _ecoSystem
             ));
@@ -506,18 +506,15 @@ contract DefiSyndicate is IERC20, Ownable {
     receive() external payable {}
 
     function _reflectFee(uint256 rFee, uint256 tFee) private {
-        console.log("DefiSyndicate#_reflectFee");
-        console.log(rFee);
-        console.log(tFee);
         _rTotal = _rTotal.sub(rFee);
         _tFeeTotal = _tFeeTotal.add(tFee);
     }
 
     function _getValues(uint256 tAmount, uint256 _tierIndex, uint buySell) private view returns (FeeValues memory) {
         tFeeValues memory tValues = _getTValues(tAmount, _tierIndex, buySell);
-        uint256 tTransferFee = tValues.tEcoSystem.add(tValues.tBurn);
+        uint256 tTransferFee = tValues.tEcoSystem.add(tValues.tBurn).add(tValues.tAvaxReflect);
         (uint256 rAmount, uint256 rTransferAmount, uint256 rReflectFee) = _getRValues(tAmount, tValues.tReflect, tTransferFee, _getRate());
-        return FeeValues(rAmount, rTransferAmount, rReflectFee, tValues.tTransferAmount, tValues.tEcoSystem, tValues.tReflect, tValues.tBurn);
+        return FeeValues(rAmount, rTransferAmount, rReflectFee, tValues.tTransferAmount, tValues.tEcoSystem, tValues.tReflect, tValues.tBurn, tValues.tAvaxReflect);
     }
 
     function _getTValues(uint256 tAmount, uint256 _tierIndex, uint buySell) private view returns (tFeeValues memory) {
@@ -525,25 +522,23 @@ contract DefiSyndicate is IERC20, Ownable {
         tFeeValues memory tValues;
         if(buySell == 0){
             tValues = tFeeValues(
-                0,
-                calculateFee(tAmount, tier.buyEcosystem),
-                calculateFee(tAmount, tier.buyReflectFee),
-                calculateFee(tAmount, tier.buyBurnFee)
+                0,                                              //xfer          tTransferAmount
+                calculateFee(tAmount, tier.buyEcosystemFee),    //eco           tEcoSystem
+                0,                                              //token reflect tReflect
+                calculateFee(tAmount, tier.buyBurnFee),         //burn          tBurn
+                calculateFee(tAmount, tier.buyReflectFee)       //avax reflect  tAvaxReflect
             );
         }else{
             tValues = tFeeValues(
-                0,
-                calculateFee(tAmount, tier.sellEcosystem),
-                calculateFee(tAmount, tier.sellReflectFee),
-                calculateFee(tAmount, tier.sellBurnFee)
+                0,                                              //xfer          tTransferAmount
+                calculateFee(tAmount, tier.sellEcosystem),      //eco           tEcoSystem
+                calculateFee(tAmount, tier.sellReflectFee),     //token reflect tReflect
+                calculateFee(tAmount, tier.sellBurnFee),        //burn          tBurn
+                0                                               //avax reflect  tAvaxReflect
             );
         }
-        //uint256 tTransferAmount;
-        //uint256 tEcoSystem;
-        //uint256 tReflect;
-        //uint256 tBurn;
 
-        tValues.tTransferAmount = tAmount.sub(tValues.tEcoSystem).sub(tValues.tReflect).sub(tValues.tBurn);
+        tValues.tTransferAmount = tAmount.sub(tValues.tEcoSystem).sub(tValues.tReflect).sub(tValues.tBurn).sub(tValues.tAvaxReflect);
         return tValues;
     }
 
@@ -557,9 +552,6 @@ contract DefiSyndicate is IERC20, Ownable {
 
     function _getRate() private view returns(uint256) {
         (uint256 rSupply, uint256 tSupply) = _getCurrentSupply();
-        console.log("DefiSyndicate#currentSupply");
-        console.log(rSupply);
-        console.log(tSupply);
         return rSupply.div(tSupply);
     }
 
@@ -625,11 +617,10 @@ contract DefiSyndicate is IERC20, Ownable {
     preventBlacklisted(to, "DefiSyndicate: To address is blacklisted")
     isRouter(_msgSender())
     {
-        console.log("Total Transfer Amount");
-        console.log(amount);
         require(from != address(0), "WAVAX: transfer from the zero address");
         require(to != address(0), "WAVAX: transfer to the zero address");
         require(amount > 0, "Transfer amount must be greater than zero");
+        require(amount + balanceOf(to) < _maxWalletAmount, "Wallets can't hold more than 90k.");
 
         if(from != owner() && to != owner())
             require(amount <= _maxTxAmount, "Transfer amount exceeds the maxTxAmount.");
@@ -662,8 +653,6 @@ contract DefiSyndicate is IERC20, Ownable {
         }
 
         //transfer amount, it will take tax, burn, liquidity fee
-        console.log("TierIndex");
-        console.log(tierIndex);
         _tokenTransfer(from, to, amount, tierIndex, takeFee, buySell);
     }
 
@@ -688,6 +677,17 @@ contract DefiSyndicate is IERC20, Ownable {
         addLiquidity(otherHalf, newBalance);
 
         emit SwapAndLiquify(half, newBalance, otherHalf);
+    }
+
+    function swapForAvaxRewards() private {
+        uint256 startingAvaxBalance = address(this).balance;
+        swapTokensForAvax(balanceOf(address(this)));
+        uint256 tokensRecieved = address(this.balance) - startingAvaxBalance;
+        cacheRewards(tokensRecieved);
+    }
+
+    function cacheRewards(uint256 rewardAmount) private {
+
     }
 
     function swapTokensForAvax(uint256 tokenAmount) private {
@@ -785,7 +785,8 @@ contract DefiSyndicate is IERC20, Ownable {
     }
 
     function _takeFees(address sender, FeeValues memory values, uint256 tierIndex, uint buySell) private {
-        _takeFee(sender, values.tEcoSystem, feeTiers[tierIndex].ecoSystem);
+        _takeFee(sender, values.tEcoSystem, feeTiers[tierIndex].ecoSystem); // send fees to marketing wallet
+        _takeFee(sender, values.tAvaxReflect, address(this)); // send avax reflect fees to this contract for batch swap later
         _takeBurn(sender, values.tBurn);
     }
 

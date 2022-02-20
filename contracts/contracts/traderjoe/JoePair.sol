@@ -195,11 +195,13 @@ contract JoePair is JoeERC20 {
     ) external lock {
         require(amount0Out > 0 || amount1Out > 0, "Joe: INSUFFICIENT_OUTPUT_AMOUNT");
         (uint112 _reserve0, uint112 _reserve1, ) = getReserves(); // gas savings
-        console.log("reserves");
+        console.log("reserves:");
         console.log(_reserve0);
         console.log(_reserve1);
         require(amount0Out < _reserve0 && amount1Out < _reserve1, "Joe: INSUFFICIENT_LIQUIDITY");
-
+        console.log("amount out:");
+        console.log(amount0Out);
+        console.log(amount1Out);
         uint256 balance0;
         uint256 balance1;
         {
@@ -212,7 +214,7 @@ contract JoePair is JoeERC20 {
             if (data.length > 0) IJoeCallee(to).joeCall(msg.sender, amount0Out, amount1Out, data);
             balance0 = IERC20Joe(_token0).balanceOf(address(this));
             balance1 = IERC20Joe(_token1).balanceOf(address(this));
-            console.log("balances");
+            console.log("balances:");
             console.log(balance0);
             console.log(balance1);
         }

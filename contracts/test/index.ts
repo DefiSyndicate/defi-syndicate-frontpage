@@ -58,50 +58,69 @@ describe("DefiSyndicate Contract", () => {
   it("Should Deposit In LP", async () => {
     await expect(await wavax.balanceOf(owner.address)).to.equal(ethers.utils.parseEther("500.0"));
     const options = {value: ethers.utils.parseEther("90")};
-    const tokenAmount = 7650000 * decimals; //85% of total supply
+    const tokenAmount = 7650000 * decimals; // 85% of total supply
     await defiSyndicate.approve(joeRouter02.address, tokenAmount);
     await wavax.approve(joeRouter02.address, ethers.utils.parseEther("90"));
     joeRouter02.addLiquidityAVAX(defiSyndicate.address, tokenAmount, 0, 0, owner.address, Date.now()+3600, options);
     await expect(await wavax.balanceOf(owner.address)).to.equal(ethers.utils.parseEther("500.0"));
   });
 
-  it("Should Buy SIN", async () => {
-    const tokenAmount = 7650000 * decimals;
-    const options = {value: ethers.utils.parseEther("0.5")};
-    const path = [wavax.address, defiSyndicate.address];
-    await defiSyndicate.approve(joeRouter02.address, tokenAmount);
+  it("Should be able to buy SIN", async () => {
+    const tokenAmount = 7650000 * decimals; // max tokens
+    const options = {value: ethers.utils.parseEther("0.5")}; // how much ether to spend on SIN
+    const path = [wavax.address, defiSyndicate.address]; // path from WAVAX to SIN
+    await defiSyndicate.approve(joeRouter02.address, tokenAmount); // approve
     await wavax.approve(joeRouter02.address, tokenAmount);
     await wavax.connect(secondary).approve(joeRouter02.address, ethers.utils.parseEther("85.0"));
     await joeRouter02.connect(secondary).swapExactAVAXForTokens(0, path, secondary.address, Date.now()+3600, options);
-    await expect(await defiSyndicate.balanceOf(secondary.address)).to.equal(35833340128263);
+    await expect(await defiSyndicate.balanceOf(secondary.address)).to.equal(35818231793898); // balance minus fees
   });
 
-  it("Should have reflections", async () => {
+  it("SIN contract should show no reflections after BUY", async () => {
     //console.log("total reflections: " + await defiSyndicate.totalFees());
-    expect(await defiSyndicate.totalFees()).to.equal(3792518660530);
+    expect(await defiSyndicate.totalFees()).to.equal(0);
   });
 
-  it("Should Have Marketing Balance", async () => {
+  it("SIN contract should have token balance from reflection", async () => {
+    //console.log("total reflections: " + await defiSyndicate.totalFees());
+    expect(await defiSyndicate.balanceOf(defiSyndicate.address)).to.equal(3792518660530); // to be converted to avax
+  });
+
+  it("Marketing wallet should have 6% of the BUY total", async () => {
     expect(await defiSyndicate.balanceOf(ecosystem.address)).to.equal(2528345773686);
   });
 
   it("Transfers between wallets should not incur fee", async () => {
     const xferAmount = 200 * decimals;
-    await defiSyndicate.transfer(tertiary.address, xferAmount);
+    await defiSyndicate.connect(secondary).transfer(tertiary.address, xferAmount);
+    expect(await defiSyndicate.balanceOf(secondary.address)).to.equal(35818231793898 - xferAmount);
     expect(await defiSyndicate.balanceOf(tertiary.address)).to.equal(xferAmount);
   });
 
-  it("Should be able to sell through TJ", async () => {
-    //uint256 amountIn,
-    //uint256 amountOutMin,
-    //address[] calldata path,
-    //address to,
-    //uint256 deadline
+  it("Should be able to SELL to AMM", async () => {
     const xferAmount = 200 * decimals;
     const path = [defiSyndicate.address, wavax.address];
     await defiSyndicate.connect(tertiary).approve(joeRouter02.address, xferAmount);
     await joeRouter02.connect(tertiary).swapExactTokensForAVAXSupportingFeeOnTransferTokens(xferAmount, 0, path, tertiary.address, Date.now()+3600);
-    console.log(await defiSyndicate.balanceOf(tertiary.address));
+    expect(await defiSyndicate.balanceOf(tertiary.address)).to.equal(0);
   });
+
+  // manually burning
+  // it("Should burn 6%", async() => {
+  //   expect(await defiSyndicate.balanceOf("0x000000000000000000000000000000000000dEaD")).to.equal(12000000000);
+  // });
+
+  it("SIN contract should show no reflections after SELL", async () => {
+    expect(await defiSyndicate.totalFees()).to.equal(6000000000);
+  });
+
+  it("SIN contract should not have additional balance after SELL", async () => {
+    expect(await defiSyndicate.balanceOf(defiSyndicate.address)).to.equal(3792518660530); 
+  });
+
+  it("Marketing wallet should have additional tokens after SELL", async () => {
+    expect(await defiSyndicate.balanceOf(ecosystem.address)).to.equal(2552345773686); 
+  });
+
 
 });
