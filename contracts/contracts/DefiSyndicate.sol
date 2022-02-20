@@ -27,7 +27,7 @@ contract DefiSyndicate is IERC20, Ownable {
         uint256 buyBurnFee;
         uint256 sellBurnFee;
         uint256 buyEcosystemFee;
-        uint256 sellEcosystem;
+        uint256 sellEcosystemFee;
         address ecoSystem;
     }
 
@@ -81,7 +81,7 @@ contract DefiSyndicate is IERC20, Ownable {
     address public uniswapV2Pair;
     address public WAVAX;
     address private _initializerAccount;
-    address public immutable _burnAddress;
+    address public _burnAddress;
 
     uint256 public _maxTxAmount;
     uint256 immutable _maxWalletAmount;
@@ -91,13 +91,9 @@ contract DefiSyndicate is IERC20, Ownable {
     address public distributorAddress;
     uint256 distributorGas = 500000;
     uint256 public swapThreshold;
-
-    event MinTokensBeforeSwapUpdated(uint256 minTokensBeforeSwap);
-    event SwapAndLiquify(
-        uint256 tokensSwapped,
-        uint256 avaxReceived,
-        uint256 tokensIntoLiquidity
-    );
+    bool public swapEnabled = true;
+    bool inSwap;
+    modifier swapping() { inSwap = true; _; inSwap = false; }
 
     modifier checkTierIndex(uint256 _index) {
         require(feeTiers.length > _index, "DefiSyndicate: Invalid tier index");
@@ -138,7 +134,6 @@ contract DefiSyndicate is IERC20, Ownable {
         _rTotal = (MAX - (MAX % _tTotal));
         _maxFee = 1500;
 
-        swapAndLiquifyEnabled = false;
         swapThreshold = _tTotal / 1000; // 0.01%
 
         _maxTxAmount = _rTotal.div(100);
@@ -156,7 +151,7 @@ contract DefiSyndicate is IERC20, Ownable {
             .createPair(address(this), WAVAX);
 
 
-        //exclude owner and this contract from fee
+        // exclude owner and this contract from fee
         _isExcludedFromFee[owner()] = true;
         _isExcludedFromFee[address(this)] = true;
         _isExcludedFromFee[_burnAddress] = true;
@@ -179,17 +174,17 @@ contract DefiSyndicate is IERC20, Ownable {
         // uint256 buyBurnFee;
         // uint256 sellBurnFee;
         // uint256 buyEcosystemFee;
-        // uint256 sellEcosystem;
+        // uint256 sellEcosystemFee;
         // address ecoSystem;
         _defaultFees = _addTier(900, 300, 0, 0, 600, 1200, address(0));
         _addTier(900, 300, 0, 0, 600, 1200, address(0));
     }
 
-    function name() public view returns (string memory) {
+    function name() public pure returns (string memory) {
         return _name;
     }
 
-    function symbol() public view returns (string memory) {
+    function symbol() public pure returns (string memory) {
         return _symbol;
     }
 
@@ -359,7 +354,7 @@ contract DefiSyndicate is IERC20, Ownable {
 
     function addSellFees(FeeTier memory _tier) internal pure returns(uint256){
         return _tier.sellBurnFee
-            .add(_tier.sellEcosystem)
+            .add(_tier.sellEcosystemFee)
             .add(_tier.sellReflectFee);
     }
 
@@ -372,12 +367,12 @@ contract DefiSyndicate is IERC20, Ownable {
         }
     }
 
-    function setSellEcoSystemFeePercent(uint256 _tierIndex, uint256 _sellEcoSystem) external onlyOwner checkTierIndex(_tierIndex) {
+    function setSellEcoSystemFeePercent(uint256 _tierIndex, uint256 _sellEcosystemFee) external onlyOwner checkTierIndex(_tierIndex) {
         FeeTier memory tier = feeTiers[_tierIndex];
-        checkSellFeesChanged(tier, tier.sellEcosystem, _sellEcoSystem);
-        feeTiers[_tierIndex].sellEcosystem = _sellEcoSystem;
+        checkSellFeesChanged(tier, tier.sellEcosystemFee, _sellEcosystemFee);
+        feeTiers[_tierIndex].sellEcosystemFee = _sellEcosystemFee;
         if(_tierIndex == 0) {
-            _defaultFees.sellEcosystem = _sellEcoSystem;
+            _defaultFees.sellEcosystemFee = _sellEcosystemFee;
         }
     }
 
@@ -426,13 +421,22 @@ contract DefiSyndicate is IERC20, Ownable {
         }
     }
 
+    function setDistributionCriteria(uint256 _minPeriod, uint256 _minDistribution) external onlyOwner {
+        distributor.setDistributionCriteria(_minPeriod, _minDistribution);
+    }
+
+    function setDistributorSettings(uint256 gas) external onlyOwner {
+        require(gas < 750000);
+        distributorGas = gas;
+    }
+
     function addTier(
         uint256 _buyReflectFee,
         uint256 _sellReflectFee,
         uint256 _buyBurnFee,
         uint256 _sellBurnFee,
         uint256 _buyEcosystemFee,
-        uint256 _sellEcosystem,
+        uint256 _sellEcosystemFee,
         address _ecoSystem
     ) public onlyOwner {
         _addTier(
@@ -441,7 +445,7 @@ contract DefiSyndicate is IERC20, Ownable {
             _buyBurnFee,
             _sellBurnFee,
             _buyEcosystemFee,
-            _sellEcosystem,
+            _sellEcosystemFee,
             _ecoSystem
         );
     }
@@ -452,7 +456,7 @@ contract DefiSyndicate is IERC20, Ownable {
         uint256 _buyBurnFee,
         uint256 _sellBurnFee,
         uint256 _buyEcosystemFee,
-        uint256 _sellEcosystem,
+        uint256 _sellEcosystemFee,
         address _ecoSystem
     ) internal returns (FeeTier memory) {
         FeeTier memory _newTier = checkFees(FeeTier(
@@ -461,7 +465,7 @@ contract DefiSyndicate is IERC20, Ownable {
                 _buyBurnFee,
                 _sellBurnFee,
                 _buyEcosystemFee,
-                _sellEcosystem,
+                _sellEcosystemFee,
                 _ecoSystem
             ));
         excludeFromReward(_ecoSystem);
@@ -513,6 +517,8 @@ contract DefiSyndicate is IERC20, Ownable {
     function _getTValues(uint256 tAmount, uint256 _tierIndex, uint buySell) private view returns (tFeeValues memory) {
         FeeTier memory tier = feeTiers[_tierIndex];
         tFeeValues memory tValues;
+        console.log("buySell:");
+        console.log(buySell);
         if(buySell == 0){
             tValues = tFeeValues(
                 0,                                              //xfer          tTransferAmount
@@ -521,12 +527,20 @@ contract DefiSyndicate is IERC20, Ownable {
                 calculateFee(tAmount, tier.buyBurnFee),         //burn          tBurn
                 calculateFee(tAmount, tier.buyReflectFee)       //avax reflect  tAvaxReflect
             );
+        }else if(buySell == 1){
+            tValues = tFeeValues(
+                0,                                              //xfer          tTransferAmount
+                calculateFee(tAmount, tier.sellEcosystemFee),   //eco           tEcoSystem
+                calculateFee(tAmount, tier.sellReflectFee),     //token reflect tReflect
+                calculateFee(tAmount, tier.sellBurnFee),        //burn          tBurn
+                0                                               //avax reflect  tAvaxReflect
+            );
         }else{
             tValues = tFeeValues(
                 0,                                              //xfer          tTransferAmount
-                calculateFee(tAmount, tier.sellEcosystem),      //eco           tEcoSystem
-                calculateFee(tAmount, tier.sellReflectFee),     //token reflect tReflect
-                calculateFee(tAmount, tier.sellBurnFee),        //burn          tBurn
+                0,                                              //eco           tEcoSystem
+                0,                                              //token reflect tReflect
+                0,                                              //burn          tBurn
                 0                                               //avax reflect  tAvaxReflect
             );
         }
@@ -613,19 +627,19 @@ contract DefiSyndicate is IERC20, Ownable {
         require(from != address(0), "WAVAX: transfer from the zero address");
         require(to != address(0), "WAVAX: transfer to the zero address");
         require(amount > 0, "Transfer amount must be greater than zero");
-        require(amount + balanceOf(to) < _maxWalletAmount, "Wallets can't hold more than 90k.");
+        require(to != address(uniswapV2Router) && amount + balanceOf(to) < _maxWalletAmount, "Wallets can't hold more than 90k.");
 
         if(from != owner() && to != owner())
             require(amount <= _maxTxAmount, "Transfer amount exceeds the maxTxAmount.");
 
         // is this a buy event or sell event?
         uint buySell;
-        if(to == uniswapV2Pair){
-            buySell = 1;
-        }else if(from == uniswapV2Pair){
-            buySell = 0;
+        if(from == uniswapV2Pair){
+            buySell = 0; //buy
+        }else if(to == uniswapV2Pair){
+            buySell = 1; //sell 
         }else {
-            buySell = 3;
+            buySell = 3; //transfer or other
         }
 
         // indicates if fee should be deducted from transfer
@@ -648,50 +662,24 @@ contract DefiSyndicate is IERC20, Ownable {
         //transfer amount, it will take tax, burn, liquidity fee
         _tokenTransfer(from, to, amount, tierIndex, takeFee, buySell);
     }
+    
+    function shouldSwapAndDistributeRewards() private view returns(bool){
+        return (msg.sender != uniswapV2Pair)
+        && !inSwap
+        && swapEnabled
+        && balanceOf(address(this)) >= swapThreshold;
+    }
 
     function swapAndDistributeRewards() private {
-        uint256 startingAvaxBalance = address(this).balance;
-        swapTokensForAvax(balanceOf(address(this)));
-        uint256 tokensRecieved = address(this.balance) - startingAvaxBalance;
-
-        try distributor.deposit{ value: tokensRecieved }() {} catch {}
+        //uint256 startingAvaxBalance = address(this).balance;
+        //swapTokensForAvax(balanceOf(address(this)));
+        //uint256 tokensRecieved = address(this).balance - startingAvaxBalance;
+        console.log("Sending rewards to distributor");
+        _transfer(address(this), distributorAddress, balanceOf(address(this)));
+        try distributor.processDeposit() {} catch {}
     }
 
-
-    function swapTokensForAvax(uint256 tokenAmount) private {
-        // generate the uniswap pair path of token -> WAVAX
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = uniswapV2Router.WAVAX();
-
-        _approve(address(this), address(uniswapV2Router), tokenAmount);
-
-        // make the swap
-        uniswapV2Router.swapTokensForExactAVAX(
-            tokenAmount,
-            0, // accept any amount of AVAX
-            path,
-            address(this),
-            block.timestamp
-        );
-    }
-
-    function addLiquidity(uint256 tokenAmount, uint256 avaxAmount) private {
-        // approve token transfer to cover all possible scenarios
-        _approve(address(this), address(uniswapV2Router), tokenAmount);
-
-        // add the liquidity
-        uniswapV2Router.addLiquidityAVAX{value: avaxAmount}(
-            address(this),
-            tokenAmount,
-            0, // slippage is unavoidable
-            0, // slippage is unavoidable
-            owner(),
-            block.timestamp
-        );
-    }
-
-    //this method is responsible for taking all fee, if takeFee is true
+    // this method is responsible for taking all fee, if takeFee is true
     function _tokenTransfer(address sender, address recipient, uint256 amount, uint256 tierIndex, bool takeFee, uint buySell) private {
         if(!takeFee)
             removeAllFee();

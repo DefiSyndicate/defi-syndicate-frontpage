@@ -7,6 +7,7 @@ Twitter: @CuriouslyCory
 */
 pragma solidity ^0.8.12;
 
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "../traderjoe/interfaces/IJoeRouter02.sol";
@@ -16,7 +17,7 @@ import "../traderjoe/interfaces/IJoeRouter02.sol";
 interface IDividendDistributor {
     function setDistributionCriteria(uint256 _minPeriod, uint256 _minDistribution) external;
     function setShare(address shareholder, uint256 amount) external;
-    function deposit() external payable;
+    function processDeposit() external;
     function process(uint256 gas) external;
 }
 
@@ -91,22 +92,23 @@ contract DividendDistributor is IDividendDistributor {
         shares[shareholder].totalExcluded = getCumulativeDividends(shares[shareholder].amount);
     }
 
-    function deposit() external payable override onlyToken {
-        uint256 balanceBefore = WAVAX.balanceOf(address(this));
+    function processDeposit() external override onlyToken {
+        uint256 balanceBefore = address(this).balance;
 
         address[] memory path = new address[](2);
         path[0] = address(SIN);
         path[1] = address(WAVAX);
         
 
-        router.swapExactAVAXForTokensSupportingFeeOnTransferTokens{value: msg.value}(
-            0,
+        router.swapExactTokensForAVAXSupportingFeeOnTransferTokens(
+            SIN.balanceOf(address(this)),
+            0, // accept any amount of AVAX
             path,
             address(this),
             block.timestamp
         );
 
-        uint256 amount = WAVAX.balanceOf(address(this)).sub(balanceBefore);
+        uint256 amount = address(this).balance.sub(balanceBefore);
 
         totalDividends = totalDividends.add(amount);
         dividendsPerShare = dividendsPerShare.add(dividendsPerShareAccuracyFactor.mul(amount).div(totalShares));
