@@ -14,6 +14,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {IDividendDistributor, DividendDistributor} from "./libraries/DividendDistributor.sol";
 import {IUniswapV2Factory, IUniswapV2Pair, IUniswapV2Router01, IUniswapV2Router02} from "./deps/UniswapV2.sol";
 
 contract DefiSyndicate is IERC20, Ownable {
@@ -66,8 +67,8 @@ contract DefiSyndicate is IERC20, Ownable {
     uint256 private _tFeeTotal;
     uint256 private _maxFee;
 
-    string private immutable _name;
-    string private immutable _symbol;
+    string private constant _name = "Syndicate ID Number";
+    string private constant _symbol = "SIN";
     uint8 private immutable _decimals;
 
     FeeTier public _defaultFees;
@@ -80,30 +81,23 @@ contract DefiSyndicate is IERC20, Ownable {
     address public uniswapV2Pair;
     address public WAVAX;
     address private _initializerAccount;
-    address public _burnAddress;
-
-    bool inSwapAndLiquify;
-    bool public swapAndLiquifyEnabled;
+    address public immutable _burnAddress;
 
     uint256 public _maxTxAmount;
     uint256 immutable _maxWalletAmount;
     uint256 private numTokensSellToAddToLiquidity;
 
-    bool private _upgraded;
+    DividendDistributor distributor;
+    address public distributorAddress;
+    uint256 distributorGas = 500000;
+    uint256 public swapThreshold;
 
     event MinTokensBeforeSwapUpdated(uint256 minTokensBeforeSwap);
-    event SwapAndLiquifyEnabledUpdated(bool enabled);
     event SwapAndLiquify(
         uint256 tokensSwapped,
         uint256 avaxReceived,
         uint256 tokensIntoLiquidity
     );
-
-    modifier lockTheSwap {
-        inSwapAndLiquify = true;
-        _;
-        inSwapAndLiquify = false;
-    }
 
     modifier checkTierIndex(uint256 _index) {
         require(feeTiers.length > _index, "DefiSyndicate: Invalid tier index");
@@ -138,8 +132,6 @@ contract DefiSyndicate is IERC20, Ownable {
     }
 
     constructor(address _joeRouter) {
-        _name = "DefiSyndicate";
-        _symbol = "SIN";
         _decimals = 9;
 
         _tTotal = 9000000 * 10**9;
@@ -147,6 +139,7 @@ contract DefiSyndicate is IERC20, Ownable {
         _maxFee = 1500;
 
         swapAndLiquifyEnabled = false;
+        swapThreshold = _tTotal / 1000; // 0.01%
 
         _maxTxAmount = _rTotal.div(100);
         _maxWalletAmount = _maxTxAmount;
@@ -167,6 +160,11 @@ contract DefiSyndicate is IERC20, Ownable {
         _isExcludedFromFee[owner()] = true;
         _isExcludedFromFee[address(this)] = true;
         _isExcludedFromFee[_burnAddress] = true;
+
+        // init distributor for AVAX reflections
+        distributor = new DividendDistributor(address(uniswapV2Router));
+        distributorAddress = address(distributor);
+        
 
         __DefiSyndicate_tiers_init();
 
@@ -296,6 +294,10 @@ contract DefiSyndicate is IERC20, Ownable {
 
     function includeInFee(address account) public onlyOwner {
         _isExcludedFromFee[account] = false;
+    }
+
+    function setSwapThreshold(uint256 threshold) public onlyOwner {
+        swapThreshold = _tTotal / threshold; // 1000 = 0.01%
     }
 
     function whitelistAddress(
@@ -487,19 +489,10 @@ contract DefiSyndicate is IERC20, Ownable {
         WAVAX = uniswapV2Router.WAVAX();
     }
 
-    function setDefaultSettings() external onlyOwner {
-        swapAndLiquifyEnabled = true;
-    }
-
     function setMaxTxPercent(uint256 maxTxPercent) external onlyOwner {
         _maxTxAmount = _tTotal.mul(maxTxPercent).div(
             10**4
         );
-    }
-
-    function setSwapAndLiquifyEnabled(bool _enabled) public onlyOwner {
-        swapAndLiquifyEnabled = _enabled;
-        emit SwapAndLiquifyEnabledUpdated(_enabled);
     }
 
     //to receive AVAX from uniswapV2Router when swapping
@@ -656,39 +649,14 @@ contract DefiSyndicate is IERC20, Ownable {
         _tokenTransfer(from, to, amount, tierIndex, takeFee, buySell);
     }
 
-    function swapAndLiquify(uint256 contractTokenBalance) private lockTheSwap {
-        // split the contract balance into halves
-        uint256 half = contractTokenBalance.div(2);
-        uint256 otherHalf = contractTokenBalance.sub(half);
-
-        // capture the contract's current AVAX balance.
-        // this is so that we can capture exactly the amount of AVAX that the
-        // swap creates, and not make the liquidity event include any AVAX that
-        // has been manually sent to the contract
-        uint256 initialBalance = address(this).balance;
-
-        // swap tokens for AVAX
-        swapTokensForAvax(half);
-
-        // how much AVAX did we just swap into?
-        uint256 newBalance = address(this).balance.sub(initialBalance);
-
-        // add liquidity to uniswap
-        addLiquidity(otherHalf, newBalance);
-
-        emit SwapAndLiquify(half, newBalance, otherHalf);
-    }
-
-    function swapForAvaxRewards() private {
+    function swapAndDistributeRewards() private {
         uint256 startingAvaxBalance = address(this).balance;
         swapTokensForAvax(balanceOf(address(this)));
         uint256 tokensRecieved = address(this.balance) - startingAvaxBalance;
-        cacheRewards(tokensRecieved);
+
+        try distributor.deposit{ value: tokensRecieved }() {} catch {}
     }
 
-    function cacheRewards(uint256 rewardAmount) private {
-
-    }
 
     function swapTokensForAvax(uint256 tokenAmount) private {
         // generate the uniswap pair path of token -> WAVAX
@@ -730,14 +698,24 @@ contract DefiSyndicate is IERC20, Ownable {
 
         if (_isExcluded[sender] && !_isExcluded[recipient]) {
             _transferFromExcluded(sender, recipient, amount, tierIndex, buySell);
+            try distributor.setShare(recipient, _rOwned[recipient]) {} catch {}
         } else if (!_isExcluded[sender] && _isExcluded[recipient]) {
             _transferToExcluded(sender, recipient, amount, tierIndex, buySell);
+            try distributor.setShare(sender, _rOwned[sender]) {} catch {}
         } else if (!_isExcluded[sender] && !_isExcluded[recipient]) {
             _transferStandard(sender, recipient, amount, tierIndex, buySell);
+            try distributor.setShare(sender, _rOwned[sender]) {} catch {}
+            try distributor.setShare(recipient, _rOwned[recipient]) {} catch {}
         } else if (_isExcluded[sender] && _isExcluded[recipient]) {
             _transferBothExcluded(sender, recipient, amount, tierIndex, buySell);
         } else {
             _transferStandard(sender, recipient, amount, tierIndex, buySell);
+            try distributor.setShare(sender, _rOwned[sender]) {} catch {}
+            try distributor.setShare(recipient, _rOwned[recipient]) {} catch {}
+        }
+
+        if(shouldSwapAndDistributeRewards()){
+            swapAndDistributeRewards();
         }
 
         if(!takeFee)
