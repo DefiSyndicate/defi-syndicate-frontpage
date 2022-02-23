@@ -26,7 +26,7 @@ contract DefiSyndicateV2 is IERC20, Auth {
     address ZERO = 0x0000000000000000000000000000000000000000;
     address DEAD_NON_CHECKSUM = 0x000000000000000000000000000000000000dEaD;
     address public autoLiquidityReceiver;
-    address payable public marketingFeeReceiver;
+    address public marketingFeeReceiver;
 
     string constant _name = "Syndicate ID Number";
     string constant _symbol = "SIN";
@@ -84,8 +84,8 @@ contract DefiSyndicateV2 is IERC20, Auth {
     modifier swapping() { inSwap = true; _; inSwap = false; }
 
     constructor (
-        address _dexRouter, address payable _marketingAddress
-    ) Auth(msg.sender) payable {
+        address _dexRouter, address _marketingAddress
+    ) Auth(msg.sender) {
         router = IJoeRouter02(_dexRouter);
         WAVAX = router.WAVAX();
 
@@ -174,8 +174,8 @@ contract DefiSyndicateV2 is IERC20, Auth {
 
         _balances[recipient] = _balances[recipient].add(amountReceived);
 
-        if(!isDividendExempt[sender]){ try distributor.setShare(payable(sender), _balances[sender]) {} catch {} }
-        if(!isDividendExempt[recipient]){ try distributor.setShare(payable(recipient), _balances[recipient]) {} catch {} }
+        if(!isDividendExempt[sender]){ try distributor.setShare(sender, _balances[sender]) {} catch {} }
+        if(!isDividendExempt[recipient]){ try distributor.setShare(recipient, _balances[recipient]) {} catch {} }
 
         try distributor.process(distributorGas) {} catch {}
 
@@ -257,12 +257,12 @@ contract DefiSyndicateV2 is IERC20, Auth {
 
         uint256 totalAVAXFee = dynamicLiquidityFee > 0 ? totalFee.sub(dynamicLiquidityFee.div(2)) : totalFee;
 
-        uint256 amountAVAXLiquidity = amountAVAX.mul(dynamicLiquidityFee).div(totalAVAXFee).div(2);
+        uint256 amountAVAXLiquidity = dynamicLiquidityFee > 0 ? amountAVAX.mul(dynamicLiquidityFee).div(totalAVAXFee).div(2) : 0;
         uint256 amountAVAXReflection = amountAVAX.mul(reflectionFee).div(totalAVAXFee);
         uint256 amountAVAXMarketing = amountAVAX.mul(marketingFee).div(totalAVAXFee);
 
         try distributor.deposit{value: amountAVAXReflection}() {} catch {}
-        bool sent = marketingFeeReceiver.send(amountAVAXMarketing);
+        bool sent = payable(marketingFeeReceiver).send(amountAVAXMarketing);
         require(sent, "Transfer to marketing wallet failed");
 
 
@@ -365,9 +365,9 @@ contract DefiSyndicateV2 is IERC20, Auth {
         require(holder != address(this) && holder != pair);
         isDividendExempt[holder] = exempt;
         if(exempt){
-            distributor.setShare(payable(holder), 0);
+            distributor.setShare(holder, 0);
         }else{
-            distributor.setShare(payable(holder), _balances[holder]);
+            distributor.setShare(holder, _balances[holder]);
         }
     }
 

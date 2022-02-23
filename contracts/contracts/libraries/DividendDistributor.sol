@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 interface IDividendDistributor {
     function setDistributionCriteria(uint256 _minPeriod, uint256 _minDistribution) external;
-    function setShare(address payable shareholder, uint256 amount) external;
+    function setShare(address shareholder, uint256 amount) external;
     function deposit() external payable;
     function process(uint256 gas) external;
 }
@@ -28,7 +28,7 @@ contract DividendDistributor is IDividendDistributor {
         uint256 totalRealised;
     }
 
-    address payable[] shareholders;
+    address [] shareholders;
     mapping (address => uint256) shareholderIndexes;
     mapping (address => uint256) shareholderClaims;
 
@@ -66,7 +66,7 @@ contract DividendDistributor is IDividendDistributor {
         minDistribution = _minDistribution;
     }
 
-    function setShare(address payable shareholder, uint256 amount) external override onlyToken {
+    function setShare(address shareholder, uint256 amount) external override onlyToken {
         if(shares[shareholder].amount > 0){
             distributeDividend(shareholder);
         }
@@ -120,13 +120,13 @@ contract DividendDistributor is IDividendDistributor {
         && getUnpaidEarnings(shareholder) > minDistribution;
     }
 
-    function distributeDividend(address payable shareholder) internal {
+    function distributeDividend(address shareholder) internal {
         if(shares[shareholder].amount == 0){ return; }
 
         uint256 amount = getUnpaidEarnings(shareholder);
         if(amount > 0){
             totalDistributed = totalDistributed.add(amount);
-            bool sent = shareholder.send(amount);
+            bool sent = payable(shareholder).send(amount);
             require(sent, "TransferHelper: TRANSFER_FAILED");
 
             shareholderClaims[shareholder] = block.timestamp;
@@ -155,7 +155,7 @@ returns the  unpaid earnings
         return share.mul(dividendsPerShare).div(dividendsPerShareAccuracyFactor);
     }
 
-    function addShareholder(address payable shareholder) internal {
+    function addShareholder(address shareholder) internal {
         shareholderIndexes[shareholder] = shareholders.length;
         shareholders.push(shareholder);
     }

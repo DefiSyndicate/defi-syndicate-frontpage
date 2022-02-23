@@ -6,7 +6,8 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const options = {gasPrice: 25000000000, gasLimit: 8000000};
+  const [signer] = await ethers.getSigners()
+  const options = {gasPrice: 25000000000, gasLimit: 8000000, nonce: await signer.getTransactionCount() + 1};
   const DefiSyndicate = await ethers.getContractFactory("DefiSyndicateV2");
   const defiSyndicate = await DefiSyndicate.deploy("0xE54Ca86531e17Ef3616d22Ca28b0D458b6C89106", "0x0fe2454716e3356B752af87eE064d1e1A5cA6A81", options);
   await defiSyndicate.deployed();
