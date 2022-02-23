@@ -8,10 +8,12 @@ import { ethers } from "hardhat";
 async function main() {
   const [signer] = await ethers.getSigners()
   const options = {gasPrice: 25000000000, gasLimit: 8000000, nonce: await signer.getTransactionCount()};
-  const DefiSyndicate = await ethers.getContractFactory("DefiSyndicateV2");
-  const defiSyndicate = await DefiSyndicate.deploy("0xE54Ca86531e17Ef3616d22Ca28b0D458b6C89106", "0x0fe2454716e3356B752af87eE064d1e1A5cA6A81", options);
-  await defiSyndicate.deployed();
-  console.log(`Coin deployed to: ${defiSyndicate.address}`);
+  
+  // deploy Joe Router
+  const JoeRouter02 = await ethers.getContractFactory("JoeRouter02");
+  const joeRouter02 = await JoeRouter02.deploy("", "", options);
+  await joeRouter02.deployed();
+  console.log(`Coin deployed to: ${joeRouter02.address}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

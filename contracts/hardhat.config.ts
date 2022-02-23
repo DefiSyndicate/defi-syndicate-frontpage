@@ -59,14 +59,12 @@ const config: HardhatUserConfig = {
   },
   networks: {
     ropsten: {
-      url: process.env.ROPSTEN_URL || "",
+      url: process.env.ROPSTEN_URL || "https://ropsten.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     fuji: {
       url: 'https://api.avax-test.network/ext/bc/C/rpc',
-      gas: 25000000000,
-      gasPrice: 25000000000,
       chainId: 43113,
       accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : []
     },
