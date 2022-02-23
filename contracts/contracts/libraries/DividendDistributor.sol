@@ -10,14 +10,11 @@ pragma solidity ^0.8.12;
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "../traderjoe/interfaces/IJoeRouter02.sol";
-
-
 
 interface IDividendDistributor {
     function setDistributionCriteria(uint256 _minPeriod, uint256 _minDistribution) external;
-    function setShare(address shareholder, uint256 amount) external;
-    function processDeposit() external;
+    function setShare(address payable shareholder, uint256 amount) external;
+    function deposit() external payable;
     function process(uint256 gas) external;
 }
 
@@ -32,11 +29,7 @@ contract DividendDistributor is IDividendDistributor {
         uint256 totalRealised;
     }
 
-    IERC20 SIN = IERC20(0x83a283641C6B4DF383BCDDf807193284C84c5342);
-    IERC20 WAVAX = IERC20(0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7);
-    IJoeRouter02 router;
-
-    address[] shareholders;
+    address payable[] shareholders;
     mapping (address => uint256) shareholderIndexes;
     mapping (address => uint256) shareholderClaims;
 
@@ -48,8 +41,9 @@ contract DividendDistributor is IDividendDistributor {
     uint256 public dividendsPerShare;
     uint256 public dividendsPerShareAccuracyFactor = 10 ** 36;
 
-    uint256 public minPeriod = 1 hours;
-    uint256 public minDistribution = 10 * (10 ** 18);
+    //uint256 public minPeriod = 1 hours;
+    uint256 public minPeriod = 1 seconds;
+    uint256 public minDistribution = 0.0002 * (10 ** 18);
 
     uint256 currentIndex;
 
@@ -64,10 +58,7 @@ contract DividendDistributor is IDividendDistributor {
         require(msg.sender == _token); _;
     }
 
-    constructor (address _router) {
-        router = _router != address(0)
-        ? IJoeRouter02(_router)
-        : IJoeRouter02(0x60aE616a2155Ee3d9A68541Ba4544862310933d4);
+    constructor () {
         _token = msg.sender;
     }
 
@@ -76,7 +67,9 @@ contract DividendDistributor is IDividendDistributor {
         minDistribution = _minDistribution;
     }
 
-    function setShare(address shareholder, uint256 amount) external override onlyToken {
+    function setShare(address payable shareholder, uint256 amount) external override onlyToken {
+        console.log("DividendDistributor#setShare");
+        console.log(amount);
         if(shares[shareholder].amount > 0){
             distributeDividend(shareholder);
         }
@@ -89,35 +82,24 @@ contract DividendDistributor is IDividendDistributor {
 
         totalShares = totalShares.sub(shares[shareholder].amount).add(amount);
         shares[shareholder].amount = amount;
+        console.log(shares[shareholder].amount);
         shares[shareholder].totalExcluded = getCumulativeDividends(shares[shareholder].amount);
     }
 
-    function processDeposit() external override onlyToken {
-        uint256 balanceBefore = address(this).balance;
-
-        address[] memory path = new address[](2);
-        path[0] = address(SIN);
-        path[1] = address(WAVAX);
-        
-
-        router.swapExactTokensForAVAXSupportingFeeOnTransferTokens(
-            SIN.balanceOf(address(this)),
-            0, // accept any amount of AVAX
-            path,
-            address(this),
-            block.timestamp
-        );
-
-        uint256 amount = address(this).balance.sub(balanceBefore);
+    function deposit() external payable override onlyToken {
+        console.log("DividendDistributor#deposit");
+        uint256 amount = msg.value;
+        console.log(amount);
 
         totalDividends = totalDividends.add(amount);
         dividendsPerShare = dividendsPerShare.add(dividendsPerShareAccuracyFactor.mul(amount).div(totalShares));
     }
 
     function process(uint256 gas) external override onlyToken {
+        console.log("DividendDistributor#process");
         uint256 shareholderCount = shareholders.length;
 
-        if(shareholderCount == 0) { return; }
+        if(shareholderCount == 0 || totalDividends == 0) { return; }
 
         uint256 gasUsed = 0;
         uint256 gasLeft = gasleft();
@@ -141,35 +123,50 @@ contract DividendDistributor is IDividendDistributor {
     }
 
     function shouldDistribute(address shareholder) internal view returns (bool) {
+        console.log("DividendDistributor#shouldDistribute@timestamp");
+        //console.log(getUnpaidEarnings(shareholder) / 10 ** 18);
+        console.log(shareholderClaims[shareholder] + minPeriod < block.timestamp ? "true" : "false");
+        console.log("DividendDistributor#shouldDistribute@minDistribution");
+        console.log(getUnpaidEarnings(shareholder));
         return shareholderClaims[shareholder] + minPeriod < block.timestamp
         && getUnpaidEarnings(shareholder) > minDistribution;
     }
 
-    function distributeDividend(address shareholder) internal {
+    function distributeDividend(address payable shareholder) internal {
+        console.log("DividendDistributor#distributeDividend");
         if(shares[shareholder].amount == 0){ return; }
 
         uint256 amount = getUnpaidEarnings(shareholder);
         if(amount > 0){
+            console.log("*************ACTUAL DISTRIBUTION HAPPENING**************");
+            console.log(shareholder);
+            console.log(amount);
             totalDistributed = totalDistributed.add(amount);
-            WAVAX.transfer(shareholder, amount);
+            bool sent = shareholder.send(amount);
+            require(sent, "TransferHelper: TRANSFER_FAILED");
+
             shareholderClaims[shareholder] = block.timestamp;
             shares[shareholder].totalRealised = shares[shareholder].totalRealised.add(amount);
             shares[shareholder].totalExcluded = getCumulativeDividends(shares[shareholder].amount);
         }
     }
 
-    function claimDividend() external {
-        distributeDividend(msg.sender);
+    function claimDividend() external payable {
+        distributeDividend(payable(msg.sender));
     }
 /*
 returns the  unpaid earnings
 */
     function getUnpaidEarnings(address shareholder) public view returns (uint256) {
+        console.log("DividendDistributor#getUnpaidEarnings");
+        console.log(shareholder);
+        console.log(shares[shareholder].amount);
         if(shares[shareholder].amount == 0){ return 0; }
 
         uint256 shareholderTotalDividends = getCumulativeDividends(shares[shareholder].amount);
         uint256 shareholderTotalExcluded = shares[shareholder].totalExcluded;
-
+        console.log(shareholderTotalDividends);
+        console.log(shareholderTotalExcluded);
         if(shareholderTotalDividends <= shareholderTotalExcluded){ return 0; }
 
         return shareholderTotalDividends.sub(shareholderTotalExcluded);
@@ -179,7 +176,7 @@ returns the  unpaid earnings
         return share.mul(dividendsPerShare).div(dividendsPerShareAccuracyFactor);
     }
 
-    function addShareholder(address shareholder) internal {
+    function addShareholder(address payable shareholder) internal {
         shareholderIndexes[shareholder] = shareholders.length;
         shareholders.push(shareholder);
     }

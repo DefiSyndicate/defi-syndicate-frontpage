@@ -359,9 +359,11 @@ contract JoeRouter02 is IJoeRouter02 {
     // **** SWAP (supporting fee-on-transfer tokens) ****
     // requires the initial amount to have already been sent to the first pair
     function _swapSupportingFeeOnTransferTokens(address[] memory path, address _to) internal virtual {
+        //console.log("JoeRouter#_swapSupportingFeeOnTransferTokens");
         for (uint256 i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
             (address token0, ) = JoeLibrary.sortTokens(input, output);
+            //console.log("JoeRouter#_swapSupportingFeeOnTransferTokens@2");
             IJoePair pair = IJoePair(JoeLibrary.pairFor(factory, input, output));
             uint256 amountInput;
             uint256 amountOutput;
@@ -371,13 +373,22 @@ contract JoeRouter02 is IJoeRouter02 {
                 (uint256 reserveInput, uint256 reserveOutput) = input == token0
                     ? (reserve0, reserve1)
                     : (reserve1, reserve0);
+                //console.log("JoeRouter#_swapSupportingFeeOnTransferTokens@10");
+                //console.log(IERC20Joe(input).balanceOf(address(pair)));
+                //console.log(reserveInput);
                 amountInput = IERC20Joe(input).balanceOf(address(pair)).sub(reserveInput);
+                //console.log("JoeRouter#_swapSupportingFeeOnTransferTokens@15");
                 amountOutput = JoeLibrary.getAmountOut(amountInput, reserveInput, reserveOutput);
+                //console.log("JoeRouter#_swapSupportingFeeOnTransferTokens@17");
             }
+            //console.log("JoeRouter#_swapSupportingFeeOnTransferTokens@20");
             (uint256 amount0Out, uint256 amount1Out) = input == token0
                 ? (uint256(0), amountOutput)
                 : (amountOutput, uint256(0));
             address to = i < path.length - 2 ? JoeLibrary.pairFor(factory, output, path[i + 2]) : _to;
+            //console.log("JoeRouter#_swapSupportingFeeOnTransferTokens");
+            //console.log(amount0Out);
+            //console.log(amount1Out);
             pair.swap(amount0Out, amount1Out, to, new bytes(0));
         }
     }
@@ -423,9 +434,14 @@ contract JoeRouter02 is IJoeRouter02 {
         address to,
         uint256 deadline
     ) external virtual override ensure(deadline) {
+        //console.log("JoeRouter#swapExactTokensForAVAXSupportingFeeOnTransferTokens");
+        //console.log(path[0]);
+        //console.log(path[1]);
         require(path[path.length - 1] == WAVAX, "JoeRouter: INVALID_PATH");
         TransferHelper.safeTransferFrom(path[0], msg.sender, JoeLibrary.pairFor(factory, path[0], path[1]), amountIn);
+        //console.log("safe transfer successful");
         _swapSupportingFeeOnTransferTokens(path, address(this));
+        //console.log("_swapSupportingFeeOnTransferTokens success");
         uint256 amountOut = IERC20Joe(WAVAX).balanceOf(address(this));
         require(amountOut >= amountOutMin, "JoeRouter: INSUFFICIENT_OUTPUT_AMOUNT");
         IWAVAX(WAVAX).withdraw(amountOut);
