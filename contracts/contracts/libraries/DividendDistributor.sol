@@ -7,7 +7,6 @@ Twitter: @CuriouslyCory
 */
 pragma solidity ^0.8.12;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
@@ -43,7 +42,7 @@ contract DividendDistributor is IDividendDistributor {
 
     //uint256 public minPeriod = 1 hours;
     uint256 public minPeriod = 1 seconds;
-    uint256 public minDistribution = 0.0002 * (10 ** 18);
+    uint256 public minDistribution = 0.015 * (10 ** 18);
 
     uint256 currentIndex;
 
@@ -68,8 +67,6 @@ contract DividendDistributor is IDividendDistributor {
     }
 
     function setShare(address payable shareholder, uint256 amount) external override onlyToken {
-        console.log("DividendDistributor#setShare");
-        console.log(amount);
         if(shares[shareholder].amount > 0){
             distributeDividend(shareholder);
         }
@@ -82,21 +79,17 @@ contract DividendDistributor is IDividendDistributor {
 
         totalShares = totalShares.sub(shares[shareholder].amount).add(amount);
         shares[shareholder].amount = amount;
-        console.log(shares[shareholder].amount);
         shares[shareholder].totalExcluded = getCumulativeDividends(shares[shareholder].amount);
     }
 
     function deposit() external payable override onlyToken {
-        console.log("DividendDistributor#deposit");
         uint256 amount = msg.value;
-        console.log(amount);
 
         totalDividends = totalDividends.add(amount);
         dividendsPerShare = dividendsPerShare.add(dividendsPerShareAccuracyFactor.mul(amount).div(totalShares));
     }
 
     function process(uint256 gas) external override onlyToken {
-        console.log("DividendDistributor#process");
         uint256 shareholderCount = shareholders.length;
 
         if(shareholderCount == 0 || totalDividends == 0) { return; }
@@ -123,24 +116,15 @@ contract DividendDistributor is IDividendDistributor {
     }
 
     function shouldDistribute(address shareholder) internal view returns (bool) {
-        console.log("DividendDistributor#shouldDistribute@timestamp");
-        //console.log(getUnpaidEarnings(shareholder) / 10 ** 18);
-        console.log(shareholderClaims[shareholder] + minPeriod < block.timestamp ? "true" : "false");
-        console.log("DividendDistributor#shouldDistribute@minDistribution");
-        console.log(getUnpaidEarnings(shareholder));
         return shareholderClaims[shareholder] + minPeriod < block.timestamp
         && getUnpaidEarnings(shareholder) > minDistribution;
     }
 
     function distributeDividend(address payable shareholder) internal {
-        console.log("DividendDistributor#distributeDividend");
         if(shares[shareholder].amount == 0){ return; }
 
         uint256 amount = getUnpaidEarnings(shareholder);
         if(amount > 0){
-            console.log("*************ACTUAL DISTRIBUTION HAPPENING**************");
-            console.log(shareholder);
-            console.log(amount);
             totalDistributed = totalDistributed.add(amount);
             bool sent = shareholder.send(amount);
             require(sent, "TransferHelper: TRANSFER_FAILED");
@@ -158,15 +142,10 @@ contract DividendDistributor is IDividendDistributor {
 returns the  unpaid earnings
 */
     function getUnpaidEarnings(address shareholder) public view returns (uint256) {
-        console.log("DividendDistributor#getUnpaidEarnings");
-        console.log(shareholder);
-        console.log(shares[shareholder].amount);
         if(shares[shareholder].amount == 0){ return 0; }
 
         uint256 shareholderTotalDividends = getCumulativeDividends(shares[shareholder].amount);
         uint256 shareholderTotalExcluded = shares[shareholder].totalExcluded;
-        console.log(shareholderTotalDividends);
-        console.log(shareholderTotalExcluded);
         if(shareholderTotalDividends <= shareholderTotalExcluded){ return 0; }
 
         return shareholderTotalDividends.sub(shareholderTotalExcluded);

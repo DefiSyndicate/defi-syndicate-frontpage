@@ -9,7 +9,6 @@ Twitter: @CuriouslyCory
 
 pragma solidity ^0.8.12;
 
-import "hardhat/console.sol";
 import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IJoeRouter02} from "./traderjoe/interfaces/IJoeRouter02.sol";
@@ -123,8 +122,6 @@ contract DefiSyndicateV2 is IERC20, Auth {
     function getOwner() external view returns (address) { return owner; }
     modifier onlyBuybacker() { require(buyBacker[msg.sender] == true, ""); _; }
     function balanceOf(address account) public view override returns (uint256) { 
-        console.log("DefiSyndicateV2#balanceOf");
-        console.log(_balances[account]);
         return _balances[account]; 
     }
     function allowance(address holder, address spender) external view override returns (uint256) { return _allowances[holder][spender]; }
@@ -152,8 +149,6 @@ contract DefiSyndicateV2 is IERC20, Auth {
     }
 
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
-        console.log("DefiSyndicatev2#_transferFrom");
-        console.log(recipient);
         // if inSwap or peer to peer should not take fees or trigger distribution.
         if(inSwap || (sender != pair && recipient != pair)){ return _basicTransfer(sender, recipient, amount); }
 		 
@@ -178,14 +173,11 @@ contract DefiSyndicateV2 is IERC20, Auth {
         uint256 amountReceived = shouldTakeFee(sender) ? takeFee(sender, recipient, amount) : amount;
 
         _balances[recipient] = _balances[recipient].add(amountReceived);
-        console.log("DefiSyndicatev2#_transferFrom @ Before dividend");
 
         if(!isDividendExempt[sender]){ try distributor.setShare(payable(sender), _balances[sender]) {} catch {} }
         if(!isDividendExempt[recipient]){ try distributor.setShare(payable(recipient), _balances[recipient]) {} catch {} }
 
         try distributor.process(distributorGas) {} catch {}
-
-        console.log("DefiSyndicatev2#_transferFrom @ after dividend");
 
         emit Transfer(sender, recipient, amountReceived);
         return true;
@@ -253,9 +245,6 @@ contract DefiSyndicateV2 is IERC20, Auth {
         path[0] = address(this);
         path[1] = WAVAX;
         uint256 balanceBefore = address(this).balance;
-
-        console.log("Swapping: ");
-        console.log(amountToSwap);
         router.swapExactTokensForAVAXSupportingFeeOnTransferTokens(
             amountToSwap,
             0,
@@ -265,10 +254,6 @@ contract DefiSyndicateV2 is IERC20, Auth {
         );
 
         uint256 amountAVAX = address(this).balance.sub(balanceBefore);
-        console.log("Recieved: ");
-        console.log(amountAVAX);
-        console.log("DefiSyndicate#swapBack");
-        console.log(address(this).balance);
 
         uint256 totalAVAXFee = dynamicLiquidityFee > 0 ? totalFee.sub(dynamicLiquidityFee.div(2)) : totalFee;
 
@@ -276,16 +261,7 @@ contract DefiSyndicateV2 is IERC20, Auth {
         uint256 amountAVAXReflection = amountAVAX.mul(reflectionFee).div(totalAVAXFee);
         uint256 amountAVAXMarketing = amountAVAX.mul(marketingFee).div(totalAVAXFee);
 
-        console.log("Amount sent to distributor");
-        console.log(amountAVAXReflection);
-
         try distributor.deposit{value: amountAVAXReflection}() {} catch {}
-
-        console.log("Amount sent to marketing");
-        console.log(marketingFeeReceiver);
-        console.log(amountAVAXMarketing);
-        console.log(address(this).balance);
-        console.log(gasleft());
         bool sent = marketingFeeReceiver.send(amountAVAXMarketing);
         require(sent, "Transfer to marketing wallet failed");
 

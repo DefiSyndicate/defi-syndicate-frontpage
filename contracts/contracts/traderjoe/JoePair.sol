@@ -195,13 +195,9 @@ contract JoePair is JoeERC20 {
     ) external lock {
         require(amount0Out > 0 || amount1Out > 0, "Joe: INSUFFICIENT_OUTPUT_AMOUNT");
         (uint112 _reserve0, uint112 _reserve1, ) = getReserves(); // gas savings
-        console.log("reserves:");
         console.log(_reserve0);
-        console.log(_reserve1);
         require(amount0Out < _reserve0 && amount1Out < _reserve1, "Joe: INSUFFICIENT_LIQUIDITY");
-        console.log("amount out:");
         console.log(amount0Out);
-        console.log(amount1Out);
         uint256 balance0;
         uint256 balance1;
         {
@@ -214,9 +210,7 @@ contract JoePair is JoeERC20 {
             if (data.length > 0) IJoeCallee(to).joeCall(msg.sender, amount0Out, amount1Out, data);
             balance0 = IERC20Joe(_token0).balanceOf(address(this));
             balance1 = IERC20Joe(_token1).balanceOf(address(this));
-            console.log("balances:");
             console.log(balance0);
-            console.log(balance1);
         }
         uint256 amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
         uint256 amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
@@ -225,9 +219,7 @@ contract JoePair is JoeERC20 {
             // scope for reserve{0,1}Adjusted, avoids stack too deep errors
             uint256 balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
             uint256 balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));
-            console.log("balancesAdjusted");
             console.log(balance0Adjusted);
-            console.log(balance1Adjusted);
             require(balance0Adjusted.mul(balance1Adjusted) >= uint256(_reserve0).mul(_reserve1).mul(1000**2), "Joe: K");
         }
 

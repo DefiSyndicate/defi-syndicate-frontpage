@@ -63,6 +63,20 @@ const config: HardhatUserConfig = {
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
+    fuji: {
+      url: 'https://api.avax-test.network/ext/bc/C/rpc',
+      gas: 25000000000,
+      gasPrice: 25000000000,
+      chainId: 43113,
+      accounts: []
+    },
+    mainnet: {
+      url: 'https://api.avax.network/ext/bc/C/rpc',
+      gas: 2100000,
+      gasPrice: 225000000000,
+      chainId: 43114,
+      accounts: []
+    },
     hardhat: {
       accounts: {
           count: 500
