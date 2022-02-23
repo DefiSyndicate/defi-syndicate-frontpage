@@ -7,11 +7,11 @@ import { ethers } from "hardhat";
 
 async function main() {
   const [signer] = await ethers.getSigners()
-  const options = {gasPrice: 25000000000, gasLimit: 8000000, nonce: await signer.getTransactionCount()};
+  const options = {nonce: await signer.getTransactionCount()};
   
   // deploy Joe Router
   const JoeRouter02 = await ethers.getContractFactory("JoeRouter02");
-  const joeRouter02 = await JoeRouter02.deploy("", "", options);
+  const joeRouter02 = await JoeRouter02.deploy("0x520D96c33403ff2ceA8a0E06B3f76b2BD6341108", "0x29cb3a8160275d8c49BA2a216F6438520a395719", options); //ropsten JoeFactory and WAVAX
   await joeRouter02.deployed();
   console.log(`Coin deployed to: ${joeRouter02.address}`);
 }

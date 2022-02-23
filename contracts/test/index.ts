@@ -38,7 +38,6 @@ describe("DefiSyndicate Contract", () => {
     defiSyndicate = await DefiSyndicate.deploy(joeRouter02.address, ecosystem.address);
     await defiSyndicate.deployed();
   });
-  
 
   it("Should Initialize", async () => {
     expect(await defiSyndicate.name()).to.equal("Syndicate ID Number");
