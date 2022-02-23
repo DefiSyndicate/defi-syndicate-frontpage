@@ -85,7 +85,7 @@ contract DefiSyndicateV2 is IERC20, Auth {
 
     constructor (
         address _dexRouter, address payable _marketingAddress
-    ) Auth(msg.sender) {
+    ) Auth(msg.sender) payable {
         router = IJoeRouter02(_dexRouter);
         WAVAX = router.WAVAX();
 
