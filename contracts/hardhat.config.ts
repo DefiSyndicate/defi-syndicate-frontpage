@@ -70,10 +70,8 @@ const config: HardhatUserConfig = {
     },
     mainnet: {
       url: 'https://api.avax.network/ext/bc/C/rpc',
-      gas: 2100000,
-      gasPrice: 225000000000,
       chainId: 43114,
-      accounts: []
+      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : []
     },
     hardhat: {
       accounts: {

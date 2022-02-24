@@ -45,4 +45,12 @@
   .darkFrame {
       padding: 2rem;
   }
+
+  .heroMain {
+    font-size: 48px;
+  }
+
+  .heroTitle {
+    font-size: 28px;
+  }
 }
