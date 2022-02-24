@@ -379,18 +379,22 @@ contract DefiSyndicateV2 is IERC20, Auth {
         isTxLimitExempt[holder] = exempt;
     }
     
-    function setFree(address holder) public onlyOwner {
+    function setFree(address holder) public authorized {
         _isFree[holder] = true;
     }
     
-    function unSetFree(address holder) public onlyOwner {
+    function unSetFree(address holder) public authorized {
         _isFree[holder] = false;
     }
     
-    function checkFree(address holder) public view onlyOwner returns(bool){
+    function checkFree(address holder) public view authorized returns(bool){
         return _isFree[holder];
     }
 
+    function setMaxFee(uint256 maxFee) external authorized {
+        require(maxFee > 0 && maxFee < 10000, "Max fee out of range");
+        totalFee = maxFee;
+    }
 
     // 99% is 0,0,0,9900,10000
     // standard% is 0,0,900,600,10000
